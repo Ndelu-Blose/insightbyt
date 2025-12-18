@@ -8,6 +8,7 @@ export function getFiltersFromSearchParams(
     category: searchParams.get("category") || undefined,
     country: searchParams.get("country") || undefined,
     region: searchParams.get("region") || undefined,
+    province: searchParams.get("province") || undefined,
     time: (searchParams.get("time") as "24h" | "7d" | "30d") || undefined,
     sort:
       (searchParams.get("sort") as "publishedAt" | "relevancy") || undefined,
@@ -41,6 +42,7 @@ export function buildQueryString(filters: Filters): string {
   if (filters.category) params.set("category", filters.category);
   if (filters.country) params.set("country", filters.country);
   if (filters.region) params.set("region", filters.region);
+  if (filters.province) params.set("province", filters.province);
   if (filters.time) params.set("time", filters.time);
   if (filters.sort) params.set("sort", filters.sort);
   

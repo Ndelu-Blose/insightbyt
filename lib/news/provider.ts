@@ -50,8 +50,27 @@ async function fetchNewsAPI(
   
   if (endpoint === "everything") {
     // For 'everything' endpoint, we need at least a query
-    if (filters.q) {
-      params.set("q", filters.q);
+    let queryText = filters.q || "";
+    
+    // Enhance query with province name if province is specified
+    if (filters.province && !filters.q?.toLowerCase().includes(filters.province.toLowerCase())) {
+      // Import province name mapping (we'll need to add this)
+      // For now, convert province code to readable name
+      const provinceName = filters.province
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+      
+      // Add province to query if not already present
+      if (queryText) {
+        queryText = `${queryText} ${provinceName}`;
+      } else {
+        queryText = provinceName;
+      }
+    }
+    
+    if (queryText) {
+      params.set("q", queryText);
     } else {
       // If no query provided, use a broad search term to get recent news
       // Using "news" as a default query term
@@ -60,9 +79,110 @@ async function fetchNewsAPI(
     // Always sort by publishedAt for latest news when using everything endpoint
     params.set("sortBy", filters.sort === "publishedAt" ? "publishedAt" : "relevancy");
     
-    // For 'everything' endpoint, use language and sources if available
-    if (filters.country) {
-      // Map country code to language (simplified)
+    // For 'everything' endpoint, enhance query with country name if country is specified
+    // This helps get more relevant results for that country
+    if (filters.country && queryText) {
+      // Map country code to country name for better search results
+      const countryNames: Record<string, string> = {
+        za: "South Africa",
+        ng: "Nigeria",
+        ke: "Kenya",
+        eg: "Egypt",
+        gh: "Ghana",
+        gb: "United Kingdom",
+        fr: "France",
+        de: "Germany",
+        it: "Italy",
+        es: "Spain",
+        us: "United States",
+        ca: "Canada",
+        br: "Brazil",
+        mx: "Mexico",
+        ar: "Argentina",
+        in: "India",
+        jp: "Japan",
+        kr: "South Korea",
+        sg: "Singapore",
+        id: "Indonesia",
+        sa: "Saudi Arabia",
+        ae: "United Arab Emirates",
+        il: "Israel",
+        qa: "Qatar",
+        au: "Australia",
+        nz: "New Zealand",
+      };
+      
+      const countryName = countryNames[filters.country];
+      // Only add country name if it's not already in the query
+      if (countryName && !queryText.toLowerCase().includes(countryName.toLowerCase())) {
+        queryText = `${queryText} ${countryName}`;
+        params.set("q", queryText);
+      }
+      
+      // Also set language for better results
+      const langMap: Record<string, string> = {
+        us: "en",
+        gb: "en",
+        za: "en",
+        ng: "en",
+        ke: "en",
+        au: "en",
+        nz: "en",
+        ca: "en",
+        fr: "fr",
+        de: "de",
+        it: "it",
+        es: "es",
+        br: "pt",
+        mx: "es",
+        ar: "es",
+        in: "en",
+        jp: "ja",
+        kr: "ko",
+        sg: "en",
+        id: "id",
+        sa: "ar",
+        ae: "ar",
+        il: "he",
+        qa: "ar",
+        eg: "ar",
+        gh: "en",
+      };
+      const lang = langMap[filters.country] || "en";
+      params.set("language", lang);
+    } else if (filters.country && !queryText) {
+      // If country is specified but no query, use country name as query
+      const countryNames: Record<string, string> = {
+        za: "South Africa",
+        ng: "Nigeria",
+        ke: "Kenya",
+        eg: "Egypt",
+        gh: "Ghana",
+        gb: "United Kingdom",
+        fr: "France",
+        de: "Germany",
+        it: "Italy",
+        es: "Spain",
+        us: "United States",
+        ca: "Canada",
+        br: "Brazil",
+        mx: "Mexico",
+        ar: "Argentina",
+        in: "India",
+        jp: "Japan",
+        kr: "South Korea",
+        sg: "Singapore",
+        id: "Indonesia",
+        sa: "Saudi Arabia",
+        ae: "United Arab Emirates",
+        il: "Israel",
+        qa: "Qatar",
+        au: "Australia",
+        nz: "New Zealand",
+      };
+      const countryName = countryNames[filters.country] || "news";
+      params.set("q", countryName);
+      
       const langMap: Record<string, string> = {
         us: "en",
         gb: "en",
@@ -117,6 +237,11 @@ async function fetchNewsAPI(
     params.set("to", now.toISOString());
   } else {
     // top-headlines endpoint
+    console.log("[Provider] Using top-headlines endpoint with:", {
+      category: effectiveCategory,
+      country: effectiveCountry,
+      query: filters.q
+    });
     if (effectiveCategory) {
       params.set("category", effectiveCategory);
     }
@@ -132,6 +257,7 @@ async function fetchNewsAPI(
   params.set("apiKey", apiKey);
   
   const url = `${NEWS_API_BASE_URL}/${endpoint}?${params.toString()}`;
+  console.log("[Provider] Fetching from NewsAPI:", url.replace(apiKey, "***"));
   
   try {
     const response = await fetch(url, {
@@ -157,6 +283,8 @@ async function fetchNewsAPI(
     const articles = (data.articles || []).map((article: any) =>
       normalizeArticle(article, "newsapi")
     );
+    
+    console.log("[Provider] NewsAPI returned", articles.length, "articles");
     
     return articles;
   } catch (error) {

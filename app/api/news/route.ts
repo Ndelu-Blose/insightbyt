@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Filters, NewsResponse } from "@/lib/news/types";
-import { getCountriesForRegion, REGION_TO_COUNTRIES } from "@/lib/news/region-map";
+import { getCountriesForRegion, REGION_TO_COUNTRIES, getProvincesForCountry, getProvinceName } from "@/lib/news/region-map";
 import { fetchNews } from "@/lib/news/provider";
 import { clusterArticles } from "@/lib/news/cluster";
 
@@ -105,6 +105,26 @@ function validateRegion(region: string | null): string | undefined {
   return VALID_REGIONS.includes(lowerRegion) ? lowerRegion : undefined;
 }
 
+/**
+ * Validate province
+ */
+function validateProvince(province: string | null, country?: string): string | undefined {
+  if (!province) return undefined;
+  const lowerProvince = province.toLowerCase();
+  
+  // If country is specified, validate province belongs to that country
+  if (country) {
+    const validProvinces = getProvincesForCountry(country);
+    return validProvinces.includes(lowerProvince) ? lowerProvince : undefined;
+  }
+  
+  // Otherwise, check if it's a valid province code in any country
+  const allProvinces = Object.values(REGION_TO_COUNTRIES).flatMap((countries) =>
+    countries.flatMap((c) => getProvincesForCountry(c))
+  );
+  return allProvinces.includes(lowerProvince) ? lowerProvince : undefined;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Check request URL length to prevent DoS
@@ -132,8 +152,19 @@ export async function GET(request: NextRequest) {
     const category = validateCategory(searchParams.get("category"));
     const country = validateCountry(searchParams.get("country"));
     const region = validateRegion(searchParams.get("region"));
+    const province = validateProvince(searchParams.get("province"), country);
     const time = validateOptionalEnum(searchParams.get("time"), VALID_TIME_RANGES);
     const sort = validateEnum(searchParams.get("sort"), VALID_SORT_OPTIONS, "publishedAt");
+    
+    console.log("[API] Received query params:", {
+      q: searchParams.get("q"),
+      category: searchParams.get("category"),
+      country: searchParams.get("country"),
+      region: searchParams.get("region"),
+      province: searchParams.get("province"),
+      time: searchParams.get("time"),
+      sort: searchParams.get("sort"),
+    });
     
     // Extract filters from query params
     const filters: Filters = {
@@ -141,9 +172,12 @@ export async function GET(request: NextRequest) {
       category,
       country,
       region,
+      province,
       time,
       sort,
     };
+    
+    console.log("[API] Processed filters:", JSON.stringify(filters));
     
     // Check API key
     if (!process.env.NEWS_API_KEY) {
@@ -159,9 +193,11 @@ export async function GET(request: NextRequest) {
     if (filters.country) {
       // If country is specified, use only that country
       countriesToFetch = [filters.country];
+      console.log("[API] Fetching for country:", filters.country);
     } else if (filters.region) {
       // If region is specified, get all countries in that region
       countriesToFetch = getCountriesForRegion(filters.region);
+      console.log("[API] Region filter:", filters.region, "-> Countries:", countriesToFetch);
       
       // Security: Limit parallel requests to prevent DoS
       if (countriesToFetch.length > MAX_PARALLEL_REQUESTS) {
@@ -171,6 +207,7 @@ export async function GET(request: NextRequest) {
       // Default: fetch from all available countries (or use a default)
       // For now, we'll fetch without country filter (global news)
       countriesToFetch = [];
+      console.log("[API] No region/country filter, fetching global news");
     }
     
     // Fetch news for each country and merge results
@@ -178,9 +215,10 @@ export async function GET(request: NextRequest) {
     
     if (countriesToFetch.length === 0) {
       // Fetch without country filter (global)
-      // Remove country from filters if it exists
-      const { country, ...filtersWithoutCountry } = filters;
-      const articles = await fetchNews(filtersWithoutCountry);
+      // When there's a query, we can still fetch with country context via query enhancement
+      // Remove region from filters since fetchNews doesn't use it
+      const { region, ...filtersWithoutRegion } = filters;
+      const articles = await fetchNews(filtersWithoutRegion);
       allArticles = articles;
     } else {
       // Security: Limit parallel requests to prevent DoS
@@ -188,35 +226,111 @@ export async function GET(request: NextRequest) {
       
       // Fetch for each country and merge
       // When fetching by region, ensure category is included (default to 'general' if not specified)
-      const fetchPromises = countriesToProcess.map((country) => {
+      const fetchPromises = countriesToProcess.map(async (country) => {
+        // Remove region from filters since fetchNews doesn't use it - only country matters
+        const { region, ...filtersWithoutRegion } = filters;
         const filtersForCountry = {
-          ...filters,
+          ...filtersWithoutRegion,
           country,
           // Ensure category is set when fetching by region (required for top-headlines endpoint)
           category: filters.category || 'general'
         };
-        return fetchNews(filtersForCountry);
+        console.log("[API] Fetching for country:", country, "with filters:", JSON.stringify(filtersForCountry));
+        
+        try {
+          const articles = await fetchNews(filtersForCountry);
+          // If specific category returns no results and we have a category filter, try 'general' as fallback
+          if (articles.length === 0 && filters.category && filters.category !== 'general') {
+            console.log(`[API] No articles for ${country} with category ${filters.category}, trying 'general' category`);
+            const fallbackFilters = { ...filtersForCountry, category: 'general' };
+            const fallbackArticles = await fetchNews(fallbackFilters);
+            return fallbackArticles;
+          }
+          return articles;
+        } catch (error) {
+          console.error(`[API] Error fetching for ${country}:`, error);
+          // If specific category fails, try 'general' as fallback
+          if (filters.category && filters.category !== 'general') {
+            console.log(`[API] Error with category ${filters.category} for ${country}, trying 'general' category`);
+            try {
+              const fallbackFilters = { ...filtersForCountry, category: 'general' };
+              return await fetchNews(fallbackFilters);
+            } catch (fallbackError) {
+              console.error(`[API] Fallback also failed for ${country}:`, fallbackError);
+              throw error; // Throw original error
+            }
+          }
+          throw error;
+        }
       });
       
       const results = await Promise.allSettled(fetchPromises);
       
-      for (const result of results) {
+      let successCount = 0;
+      let failureCount = 0;
+      
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const country = countriesToProcess[i];
+        
         if (result.status === "fulfilled") {
-          allArticles.push(...result.value);
+          const articles = result.value;
+          console.log(`[API] Successfully fetched ${articles.length} articles for country: ${country}`);
+          if (articles.length > 0) {
+            allArticles.push(...articles);
+            successCount++;
+          } else {
+            console.warn(`[API] Country ${country} returned 0 articles (this is normal if no news available)`);
+          }
         } else {
-          // Don't expose internal error details to clients
-          console.error("Failed to fetch news for country:", result.reason);
+          failureCount++;
+          // Log full error details server-side
+          console.error(`[API] Failed to fetch news for country ${country}:`, result.reason);
+          if (result.reason instanceof Error) {
+            console.error("[API] Error message:", result.reason.message);
+            console.error("[API] Error stack:", result.reason.stack);
+          }
         }
       }
+      
+      console.log(`[API] Summary: ${successCount} countries succeeded, ${failureCount} countries failed, ${allArticles.length} total articles`);
     }
+    
+    console.log("[API] Total articles fetched before deduplication:", allArticles.length);
     
     // Remove duplicates based on article ID
     const uniqueArticles = Array.from(
       new Map(allArticles.map((article) => [article.id, article])).values()
     );
     
+    console.log("[API] Unique articles after deduplication:", uniqueArticles.length);
+    
+    // Filter by province if specified (client-side filtering since NewsAPI doesn't support provinces directly)
+    let filteredArticles = uniqueArticles;
+    if (filters.province && filters.country) {
+      const validProvinces = getProvincesForCountry(filters.country);
+      if (validProvinces.includes(filters.province)) {
+        // Filter articles that mention the province in title, description, or content
+        // This is a simple text-based filter - in production, you might want more sophisticated matching
+        const provinceDisplayName = getProvinceName(filters.province);
+        const provinceCodeLower = filters.province.toLowerCase();
+        const provinceNameLower = provinceDisplayName.toLowerCase();
+        
+        filteredArticles = uniqueArticles.filter((article) => {
+          const searchText = `${article.title} ${article.description || ""}`.toLowerCase();
+          
+          // Check if province code or name appears in article
+          return (
+            searchText.includes(provinceCodeLower) ||
+            searchText.includes(provinceNameLower) ||
+            article.province === filters.province
+          );
+        });
+      }
+    }
+    
     // Cluster similar articles
-    const clustered = clusterArticles(uniqueArticles);
+    const clustered = clusterArticles(filteredArticles);
     
     // Sort by sort parameter
     let sorted = [...clustered];
@@ -238,15 +352,19 @@ export async function GET(request: NextRequest) {
       });
     }
     
+    console.log("[API] Final response:", { total: sorted.length, filters: JSON.stringify(filters) });
+    
     const response: NewsResponse = {
       filters,
       total: sorted.length,
       items: sorted,
     };
-    
+
     return NextResponse.json(response, {
       headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
       },
     });
   } catch (error) {

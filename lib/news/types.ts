@@ -7,6 +7,7 @@ export type Article = {
   source: string;
   publishedAt: string; // ISO
   country?: string; // e.g. "za"
+  province?: string; // e.g. "gauteng"
   category?: string; // e.g. "technology"
 };
 
@@ -15,6 +16,7 @@ export type Filters = {
   category?: string; // business | tech | sports | ...
   country?: string; // za | us | gb ...
   region?: string; // africa | europe | americas ...
+  province?: string; // gauteng | western-cape | ...
   time?: "24h" | "7d" | "30d";
   sort?: "publishedAt" | "relevancy";
 };

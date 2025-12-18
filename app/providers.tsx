@@ -1,18 +1,36 @@
-'use client';
+"use client";
 
 import * as React from "react";
-// Temporarily disabled to fix React compatibility issues
-// import { ThemeProvider } from "next-themes";
+import { ThemeProvider } from "next-themes";
+import { useEffect, useState } from "react";
+import { getTheme } from "@/lib/preferences/storage";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // Temporarily return children directly without ThemeProvider
-  return <>{children}</>;
-  
-  // Will restore after React version fix:
-  // return (
-  //   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-  //     {children}
-  //   </ThemeProvider>
-  // );
-}
+  const [mounted, setMounted] = useState(false);
+  const [initialTheme, setInitialTheme] = useState<"light" | "dark" | "system">("system");
 
+  useEffect(() => {
+    setMounted(true);
+    // Load theme preference from cookie
+    const savedTheme = getTheme();
+    if (savedTheme) {
+      setInitialTheme(savedTheme);
+    }
+  }, []);
+
+  if (!mounted) {
+    return <>{children}</>;
+  }
+
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme={initialTheme}
+      enableSystem
+      disableTransitionOnChange={false}
+      storageKey="insight-theme"
+    >
+      {children}
+    </ThemeProvider>
+  );
+}

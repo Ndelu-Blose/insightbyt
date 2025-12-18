@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
+  --brand: 217 91% 60%;
+  --brand2: 168 76% 42%;
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
   --primary: 222.2 47.4% 11.2%;
@@ -19,6 +22,8 @@
 }
 
 .dark {
+  --brand: 217 91% 65%;
+  --brand2: 168 76% 52%;
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
   --primary: 210 40% 98%;
@@ -34,14 +39,19 @@
   --card-foreground: 210 40% 98%;
 }
 
-* {
-  border-color: hsl(var(--border));
+body {
+  @apply bg-background text-foreground antialiased;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
-body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
-  font-feature-settings: "rlig" 1, "calt" 1;
+/* Prevent accidental harsh borders - safety net */
+.border-black {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Make default borders softer in dark mode */
+.dark .border-white {
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 @layer utilities {

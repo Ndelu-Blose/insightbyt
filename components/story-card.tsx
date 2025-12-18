@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { isBookmarked, saveBookmark, removeBookmark } from "@/lib/storage/bookmarks";
+import { guessTags } from "@/lib/utils/tags";
 
 interface StoryCardProps {
   cluster: StoryCluster;
@@ -38,104 +39,88 @@ export function StoryCard({ cluster }: StoryCardProps) {
   const mainArticle = cluster.articles[0];
   const imageUrl = mainArticle.imageUrl;
 
+  const tags = guessTags(cluster.title, mainArticle.category);
+
   return (
-    <article className="group rounded-lg border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex gap-4">
+    <article className="group relative rounded-3xl bg-background/70 dark:bg-white/5 border border-border/20 dark:border-white/10 backdrop-blur-xl p-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:bg-background/80 dark:hover:bg-white/7 hover:border-border/30 dark:hover:border-white/15 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_15px_50px_rgba(0,0,0,0.45)]">
+      {/* Gradient ring on hover */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition group-hover:opacity-100 [background:radial-gradient(900px_circle_at_10%_0%,hsl(var(--brand)/0.18),transparent_35%),radial-gradient(700px_circle_at_90%_100%,hsl(var(--brand2)/0.14),transparent_40%)]" />
+      
+      <div className="relative flex gap-3">
         {imageUrl && (
-          <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-md">
+          <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
             <Image
               src={imageUrl}
               alt={cluster.title}
               fill
-              className="object-cover"
+              className="object-cover group-hover:scale-[1.03] transition"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
             />
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                  {cluster.articles.length} {cluster.articles.length === 1 ? "source" : "sources"}
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold leading-tight group-hover:text-primary">
-                <a
-                  href={mainArticle.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
-                >
-                  {cluster.title}
-                </a>
-              </h3>
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <span className="rounded-full bg-muted/50 px-2 py-1 text-xs font-medium">
+              {cluster.articles.length} {cluster.articles.length === 1 ? "source" : "sources"}
+            </span>
             <button
               onClick={handleBookmark}
-              className="flex-shrink-0 rounded-md p-1 hover:bg-muted"
+              className="rounded-full bg-muted/50 px-3 py-1 text-xs hover:bg-muted transition"
               aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
             >
-              {bookmarked ? (
-                <svg
-                  className="h-5 w-5 fill-yellow-500 text-yellow-500"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-              ) : (
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                  />
-                </svg>
-              )}
+              {bookmarked ? "Saved" : "Save"}
             </button>
           </div>
-
-          {mainArticle.description && (
-            <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-              {mainArticle.description}
-            </p>
-          )}
-
-          <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-medium">{cluster.topSource}</span>
-            <span>•</span>
-            <span>{timeAgo}</span>
-          </div>
-
-          <div className="mt-4 flex items-center gap-4">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
             <a
               href={mainArticle.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium text-primary hover:underline"
+              className="hover:underline"
             >
-              Read article →
+              {cluster.title}
             </a>
-            {cluster.articles.length > 1 && (
+          </h3>
+
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {mainArticle.description && (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {mainArticle.description}
+            </p>
+          )}
+
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full bg-muted/50 px-2 py-1">{cluster.topSource}</span>
+            <span>•</span>
+            <span>{timeAgo}</span>
+          </div>
+          {cluster.articles.length > 1 && (
+            <div className="mt-2">
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 {expanded ? "Show less" : `Show ${cluster.articles.length - 1} more`}
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {expanded && cluster.articles.length > 1 && (
-            <div className="mt-4 space-y-2 border-t pt-4">
+            <div className="mt-4 space-y-2 pt-4">
               <p className="text-xs font-medium text-muted-foreground">
                 Other sources:
               </p>
@@ -145,7 +130,7 @@ export function StoryCard({ cluster }: StoryCardProps) {
                     href={article.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium hover:text-primary hover:underline"
+                    className="font-medium hover:underline"
                   >
                     {article.title}
                   </a>
