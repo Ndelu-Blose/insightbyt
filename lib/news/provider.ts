@@ -30,15 +30,35 @@ async function fetchNewsAPI(
   const hasCountry = !!filters.country;
   
   // Use 'everything' endpoint if we have a search query, otherwise use 'top-headlines'
-  const endpoint = hasQuery ? "everything" : "top-headlines";
+  // BUT: top-headlines requires at least one of: country, category, or sources
+  // If we don't have any of these, default to 'general' category for top-headlines
+  let effectiveCategory = filters.category;
+  let effectiveCountry = filters.country;
+  
+  if (!hasQuery && !hasCategory && !hasCountry) {
+    // No filters provided - use default category 'general' for top-headlines
+    effectiveCategory = "general";
+  } else if (!hasCategory && hasCountry) {
+    // Country specified but no category - use 'general' as default for top-headlines
+    effectiveCategory = "general";
+  }
+  
+  const hasRequiredForTopHeadlines = !!effectiveCategory || !!effectiveCountry;
+  const endpoint = hasQuery || !hasRequiredForTopHeadlines ? "everything" : "top-headlines";
   
   const params = new URLSearchParams();
   
   if (endpoint === "everything") {
-    if (filters.q) params.set("q", filters.q);
-    if (filters.sort) {
-      params.set("sortBy", filters.sort === "publishedAt" ? "publishedAt" : "relevancy");
+    // For 'everything' endpoint, we need at least a query
+    if (filters.q) {
+      params.set("q", filters.q);
+    } else {
+      // If no query provided, use a broad search term to get recent news
+      // Using "news" as a default query term
+      params.set("q", "news");
     }
+    // Always sort by publishedAt for latest news when using everything endpoint
+    params.set("sortBy", filters.sort === "publishedAt" ? "publishedAt" : "relevancy");
     
     // For 'everything' endpoint, use language and sources if available
     if (filters.country) {
@@ -76,10 +96,11 @@ async function fetchNewsAPI(
     }
     
     // Calculate date range for 'everything' endpoint
+    // Default to last 7 days if no time filter specified to ensure we get recent news
+    const now = new Date();
+    let fromDate = new Date();
+    
     if (filters.time) {
-      const now = new Date();
-      let fromDate = new Date();
-      
       if (filters.time === "24h") {
         fromDate.setHours(now.getHours() - 24);
       } else if (filters.time === "7d") {
@@ -87,17 +108,20 @@ async function fetchNewsAPI(
       } else if (filters.time === "30d") {
         fromDate.setDate(now.getDate() - 30);
       }
-      
-      params.set("from", fromDate.toISOString());
-      params.set("to", now.toISOString());
+    } else {
+      // Default to last 7 days for latest news when no time filter is specified
+      fromDate.setDate(now.getDate() - 7);
     }
+    
+    params.set("from", fromDate.toISOString());
+    params.set("to", now.toISOString());
   } else {
     // top-headlines endpoint
-    if (filters.category) {
-      params.set("category", filters.category);
+    if (effectiveCategory) {
+      params.set("category", effectiveCategory);
     }
-    if (filters.country) {
-      params.set("country", filters.country);
+    if (effectiveCountry) {
+      params.set("country", effectiveCountry);
     }
     if (filters.q) {
       params.set("q", filters.q);

@@ -187,9 +187,16 @@ export async function GET(request: NextRequest) {
       const countriesToProcess = countriesToFetch.slice(0, MAX_PARALLEL_REQUESTS);
       
       // Fetch for each country and merge
-      const fetchPromises = countriesToProcess.map((country) =>
-        fetchNews({ ...filters, country })
-      );
+      // When fetching by region, ensure category is included (default to 'general' if not specified)
+      const fetchPromises = countriesToProcess.map((country) => {
+        const filtersForCountry = {
+          ...filters,
+          country,
+          // Ensure category is set when fetching by region (required for top-headlines endpoint)
+          category: filters.category || 'general'
+        };
+        return fetchNews(filtersForCountry);
+      });
       
       const results = await Promise.allSettled(fetchPromises);
       
@@ -213,7 +220,14 @@ export async function GET(request: NextRequest) {
     
     // Sort by sort parameter
     let sorted = [...clustered];
-    if (filters.sort === "relevancy") {
+    if (filters.sort === "publishedAt") {
+      // Sort by publishedAt (newest first) for latest news
+      sorted.sort((a, b) => {
+        const dateA = new Date(a.publishedAt).getTime();
+        const dateB = new Date(b.publishedAt).getTime();
+        return dateB - dateA; // Newest first
+      });
+    } else if (filters.sort === "relevancy") {
       // For relevancy, keep clusters first (they're more relevant)
       sorted.sort((a, b) => {
         const aIsCluster = "articles" in a;

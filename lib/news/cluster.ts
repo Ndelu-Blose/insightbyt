@@ -48,6 +48,7 @@ export function clusterArticles(
   if (articles.length === 0) return [];
   
   const clusters: StoryCluster[] = [];
+  const singleArticles: Article[] = [];
   const used = new Set<number>();
   
   for (let i = 0; i < articles.length; i++) {
@@ -94,17 +95,15 @@ export function clusterArticles(
         topSource: cluster[0].source,
         publishedAt: cluster[0].publishedAt, // Latest (already sorted)
       });
+    } else {
+      // Single article that wasn't clustered - add it directly to singleArticles
+      singleArticles.push(articles[i]);
+      used.delete(i); // Unmark it since we're handling it separately
     }
   }
   
-  // Add single articles that weren't clustered
-  const result: Array<Article | StoryCluster> = [...clusters];
-  
-  for (let i = 0; i < articles.length; i++) {
-    if (!used.has(i)) {
-      result.push(articles[i]);
-    }
-  }
+  // Combine clusters and single articles
+  const result: Array<Article | StoryCluster> = [...clusters, ...singleArticles];
   
   // Sort all results by publishedAt (newest first)
   result.sort((a, b) => {

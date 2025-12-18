@@ -34,7 +34,7 @@ export function FiltersPanel() {
     : [];
 
   return (
-    <div className="hidden lg:block w-64 flex-shrink-0 border-r bg-card p-6">
+    <div className="hidden lg:block w-64 flex-shrink-0 border-r bg-card p-6 sticky top-0 h-screen overflow-y-auto">
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-4">Filters</h2>
       </div>
