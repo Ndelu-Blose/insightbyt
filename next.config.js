@@ -12,6 +12,10 @@ const nextConfig = {
       },
     ],
   },
+  // Optimize for production
+  compress: true,
+  // Enable React strict mode
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;

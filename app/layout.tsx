@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import Providers from "./providers";
 import { Header } from "@/components/header";
 import { CookieBanner } from "@/components/cookie-banner";
@@ -23,7 +24,9 @@ export default function RootLayout({
       <body className={`${inter.className} bg-background text-foreground antialiased`}>
         <Providers>
           <div className="min-h-dvh bg-[radial-gradient(1200px_circle_at_20%_-10%,hsl(var(--brand)/0.18),transparent_55%),radial-gradient(900px_circle_at_80%_0%,hsl(var(--brand2)/0.14),transparent_50%)] bg-background">
-            <Header />
+            <Suspense fallback={<div className="h-16" />}>
+              <Header />
+            </Suspense>
             {children}
           </div>
           <CookieBanner />

@@ -4,6 +4,9 @@ import { getCountriesForRegion, REGION_TO_COUNTRIES, getProvincesForCountry, get
 import { fetchNews } from "@/lib/news/provider";
 import { clusterArticles } from "@/lib/news/cluster";
 
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+
 // Security constants
 const MAX_QUERY_LENGTH = 200;
 const MAX_PARALLEL_REQUESTS = 10; // Limit to prevent DoS

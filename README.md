@@ -91,8 +91,58 @@ lib/
 ## Environment Variables
 
 - `NEWS_PROVIDER`: News provider to use (default: "newsapi")
-- `NEWS_API_KEY`: Your NewsAPI.org API key
-- `NEXT_PUBLIC_APP_URL`: Base URL of the application
+- `NEWS_API_KEY`: Your NewsAPI.org API key (required)
+- `NEXT_PUBLIC_APP_URL`: Base URL of the application (optional, defaults to localhost in dev)
+
+## Deployment
+
+### Deploy to Vercel
+
+This project is ready to deploy on Vercel. Follow these steps:
+
+1. **Push your code to GitHub** (if not already done)
+
+2. **Import your project to Vercel**:
+   - Go to [vercel.com](https://vercel.com)
+   - Click "Add New Project"
+   - Import your GitHub repository
+   - Vercel will automatically detect Next.js
+
+3. **Configure Environment Variables**:
+   In the Vercel project settings, add these environment variables:
+   - `NEWS_API_KEY`: Your NewsAPI.org API key (required)
+   - `NEWS_PROVIDER`: `newsapi` (optional, defaults to "newsapi")
+   - `NEXT_PUBLIC_APP_URL`: Your Vercel deployment URL (optional, will be auto-detected)
+
+4. **Deploy**:
+   - Click "Deploy"
+   - Vercel will build and deploy your application
+   - Your app will be live at `https://your-project.vercel.app`
+
+### Manual Deployment
+
+Alternatively, you can deploy using the Vercel CLI:
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# For production deployment
+vercel --prod
+```
+
+### Build Settings
+
+Vercel will automatically detect:
+- **Framework Preset**: Next.js
+- **Build Command**: `next build` (auto-detected)
+- **Output Directory**: `.next` (auto-detected)
+- **Install Command**: `npm install` (auto-detected)
+
+No additional configuration is required. The project is optimized for Vercel's platform.
 
 ## License
 

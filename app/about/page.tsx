@@ -314,7 +314,7 @@ export default function AboutPage() {
             or viewpoint.
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            News content is provided "as is" without warranty of any kind. All articles
+            News content is provided &quot;as is&quot; without warranty of any kind. All articles
             link back to their original sources for verification.
           </p>
         </div>
@@ -341,7 +341,7 @@ export default function AboutPage() {
           <p className="text-sm text-muted-foreground leading-relaxed">
             Insight by T stores bookmarks locally in your browser using LocalStorage.
             No personal data is collected or transmitted to external servers. Your
-            browsing history and preferences remain completely private—we don't track
+            browsing history and preferences remain completely private—we don&apos;t track
             you, period.
           </p>
         </div>

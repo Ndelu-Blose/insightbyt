@@ -112,6 +112,7 @@ export function NewsFeed({ filters, tab }: NewsFeedProps) {
 
     fetchNews();
     // Depend on individual filter values to ensure re-fetch when any filter changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.q,
     filters.category,

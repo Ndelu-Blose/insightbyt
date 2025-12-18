@@ -94,7 +94,7 @@ export function detectLocationInQuery(query: string): DetectedLocation {
   return {
     country: detectedCountry,
     province: detectedProvince,
-    remainingQuery: remainingQuery || undefined,
+    remainingQuery: remainingQuery || "",
   };
 }
 
